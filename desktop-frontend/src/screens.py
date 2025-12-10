@@ -35,6 +35,7 @@ class WelcomeScreen(QDialog):
         new_theme = "dark" if app_state.current_theme == "light" else "light"
         apply_theme_to_all(new_theme)
         self.update_theme_button()
+        self.center_content()
 
     def update_theme_button(self):
         if not hasattr(self, "themeToggle"):
@@ -98,6 +99,7 @@ class LoginScreen(QDialog):
         new_theme = "dark" if app_state.current_theme == "light" else "light"
         apply_theme_to_all(new_theme)
         self.update_theme_button()
+        self.center_content()
 
     def update_theme_button(self):
         if not hasattr(self, "themeToggle"):
@@ -184,6 +186,7 @@ class CreateAccScreen(QDialog):
         new_theme = "dark" if app_state.current_theme == "light" else "light"
         apply_theme_to_all(new_theme)
         self.update_theme_button()
+        self.center_content()
 
     def update_theme_button(self):
         if not hasattr(self, "themeToggle"):
