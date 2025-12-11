@@ -150,7 +150,7 @@
 920,Furnance and Boilers,Two Cell Fired Heater/Furnance,E,,TwoCellFiredHeaterFurnace,,,
 1001,Furnance and Boilers,Solid Fuel Furnance,E,,SolidFuelFurnace,,,
 1002,Furnance and Boilers,"Oil, Gas or Pulverized Fuel Furnace",E,,OilGasOrPulverizedFuelFurnace,,,
-1003,Furnance and Boilers,Electric Furnance,E,,ElectricFurnance,,,
+1003,Furnance and Boilers,Electric Furnace,E,,ElectricFurnace,,,
 1004,Furnance and Boilers,Fired Boiler,E,,FiredBoiler,,,
 1005,Furnance and Boilers,Waste Heat Boiler,E,,WasteHeatBoiler,,,
 1101,Process Vessels,Horizontal Vessel,V,,HorizontalVessel,,,
