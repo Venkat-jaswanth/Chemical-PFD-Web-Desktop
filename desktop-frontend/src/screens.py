@@ -1,6 +1,7 @@
 from PyQt5.uic import loadUi
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtWidgets import QDialog
+import os
 
 import src.app_state as app_state
 from src.theme import apply_theme_to_screen, apply_theme_to_all
@@ -38,7 +39,20 @@ class WelcomeScreen(QDialog):
     def update_theme_button(self):
         if not hasattr(self, "themeToggle"):
             return
-        self.themeToggle.setText("Dark mode" if app_state.current_theme == "light" else "Light mode")
+        if app_state.current_theme == "light":
+            # Current is light -> Show Moon (to switch to dark)
+            icon_path = os.path.join("ui", "res", "moon.png")
+        else:
+            # Current is dark -> Show Sun (to switch to light)
+            icon_path = os.path.join("ui", "res", "sun.png")
+            
+        if os.path.exists(icon_path):
+            self.themeToggle.setIcon(QtGui.QIcon(icon_path))
+            self.themeToggle.setIconSize(QtCore.QSize(32, 32))
+            self.themeToggle.setText("")
+        else:
+            # Fallback if icon missing
+            self.themeToggle.setText("Dark mode" if app_state.current_theme == "light" else "Light mode")
 
     def resizeEvent(self, event):
         self.center_content()
@@ -101,7 +115,17 @@ class LoginScreen(QDialog):
     def update_theme_button(self):
         if not hasattr(self, "themeToggle"):
             return
-        self.themeToggle.setText("Dark mode" if app_state.current_theme == "light" else "Light mode")
+        if app_state.current_theme == "light":
+            icon_path = os.path.join("ui", "res", "moon.png")
+        else:
+            icon_path = os.path.join("ui", "res", "sun.png")
+
+        if os.path.exists(icon_path):
+            self.themeToggle.setIcon(QtGui.QIcon(icon_path))
+            self.themeToggle.setIconSize(QtCore.QSize(32, 32))
+            self.themeToggle.setText("")
+        else:
+            self.themeToggle.setText("Dark mode" if app_state.current_theme == "light" else "Light mode")
     
     def resizeEvent(self, event):
         self.center_content()
@@ -200,7 +224,17 @@ class CreateAccScreen(QDialog):
     def update_theme_button(self):
         if not hasattr(self, "themeToggle"):
             return
-        self.themeToggle.setText("Dark mode" if app_state.current_theme == "light" else "Light mode")
+        if app_state.current_theme == "light":
+            icon_path = os.path.join("ui", "res", "moon.png")
+        else:
+            icon_path = os.path.join("ui", "res", "sun.png")
+
+        if os.path.exists(icon_path):
+            self.themeToggle.setIcon(QtGui.QIcon(icon_path))
+            self.themeToggle.setIconSize(QtCore.QSize(32, 32))
+            self.themeToggle.setText("")
+        else:
+            self.themeToggle.setText("Dark mode" if app_state.current_theme == "light" else "Light mode")
     
     def resizeEvent(self, event):
         self.center_content()

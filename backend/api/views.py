@@ -1,5 +1,7 @@
 from django.shortcuts import render
 
+from .models import Component
+from .serializers import ComponentSerializer
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.decorators import api_view, permission_classes
@@ -50,3 +52,31 @@ class LoginView(TokenObtainPairView):
 
 class MyTokenRefreshView(TokenRefreshView):
     permission_classes = [AllowAny]
+
+
+class ComponentListView(generics.ListAPIView):
+
+    queryset = Component.objects.all()
+    serializer_class = ComponentSerializer
+    permission_classes = [AllowAny] 
+
+    
+    ordering_fields = ['s_no', 'name', 'legend']
+    ordering = ['s_no']  
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        return queryset
+
+class ComponentDetailView(generics.RetrieveAPIView):
+    queryset = Component.objects.all()
+    serializer_class = ComponentSerializer
+    permission_classes = [AllowAny]
+    lookup_field = 'id'
+
+class ComponentByNameView(generics.RetrieveAPIView):
+    queryset = Component.objects.all()
+    serializer_class = ComponentSerializer
+    permission_classes = [AllowAny]
+    lookup_field = 'name'
