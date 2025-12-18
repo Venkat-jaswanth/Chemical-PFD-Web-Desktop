@@ -97,7 +97,14 @@ import FloatingRoofTankSVG from "@/assets/svg/Storage Vessels Tanks/Floating Roo
 
 // Valves
 import GateValveIcon from "@/assets/toolbar/Valves/Gate Valve.png";
+import ButterflyValveIcon from "@/assets/toolbar/Valves/Butterfly Valve.png";
+import FloatValveIcon from "@/assets/toolbar/Valves/Float Valve.png";
+import GlobeValveIcon from "@/assets/toolbar/Valves/Globe Valve.png";
+
 import GateValveSVG from "@/assets/svg/Valves/Gate Valve.svg";
+import ButterflyValveSVG from "@/assets/svg/Valves/Butterfly Valve.svg";
+import FloatValveSVG from "@/assets/svg/Valves/Float Valve.svg";
+import GlobeValveSVG from "@/assets/svg/Valves/Globe Valve.svg";
 
 // Dryers
 import ContinuousDryerIcon from "@/assets/toolbar/Dryers/Continuous Dryer.png";
@@ -429,7 +436,32 @@ export const componentsConfig = {
       svg: GateValveSVG,
       class: "Valves",
       object: "GateValve",
-      args: []
+      args: [],
+    },
+    
+    "Butterfly Valve": {
+      name: "Butterfly Valve",
+      icon: ButterflyValveIcon,
+      svg: ButterflyValveSVG,
+      class: "Valves",
+      object: "ButterflyValve",
+      args: [],
+    },
+    "Float Valve": {
+      name: "Float Valve",
+      icon: FloatValveIcon,
+      svg: FloatValveSVG,
+      class: "Valves",
+      object: "FloatValve",
+      args: [],
+    },
+    "Globe Valve": {
+      name: "Globe Valve",
+      icon: GlobeValveIcon,
+      svg: GlobeValveSVG,
+      class: "Valves",
+      object: "GlobeValve",
+      args: [],
     }
   },
   "Dryers": {
@@ -439,7 +471,7 @@ export const componentsConfig = {
       svg: ContinuousDryerSVG,
       class: "Dryers",
       object: "ContinuousDryer",
-      args: []
+      args: [],
     }
   },
   "Size Reduction Equipements": {
