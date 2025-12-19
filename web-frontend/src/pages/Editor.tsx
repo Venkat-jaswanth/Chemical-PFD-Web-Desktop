@@ -39,6 +39,7 @@ import {
   type CanvasItem,
   type CanvasState,
 } from "@/store/useEditorStore";
+import { ExportReportModal } from "@/components/Canvas/ExportReportModal";
 
 export default function Editor() {
   const { projectId } = useParams();
@@ -90,6 +91,8 @@ export default function Editor() {
   const connections = canvasState?.connections || [];
 
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
   const { exportDiagram, isExporting, exportError } = useExport();
   const handleExport = async (options: ExportOptions) => {
     await exportDiagram(stageRef.current, options, droppedItems);
@@ -197,7 +200,7 @@ export default function Editor() {
 
   const connectionPaths = useMemo(
     () => calculateManualPathsWithBridges(connections, droppedItems),
-    [connections, droppedItems],
+    [connections, droppedItems]
   );
 
   // --- Event Listeners ---
@@ -416,7 +419,7 @@ export default function Editor() {
         return {
           ...prev,
           items: prev.items.map((it) =>
-            it.id === itemId ? { ...it, ...updates } : it,
+            it.id === itemId ? { ...it, ...updates } : it
           ),
         };
       });
@@ -447,7 +450,7 @@ export default function Editor() {
     itemId: number,
     gripIndex: number,
     x: number,
-    y: number,
+    y: number
   ) => {
     if (!projectId) return;
 
@@ -513,7 +516,7 @@ export default function Editor() {
                   currentX: pointer.x,
                   currentY: pointer.y,
                 }
-              : null,
+              : null
           );
         }
       }
@@ -546,23 +549,27 @@ export default function Editor() {
     console.log("%c[EDITOR]", "color:#22c55e", ...args);
 
   // ---------- Initialize editor from editor store ----------
-  useEffect(() => {
-    if (!projectId) return;
+// ---------- Initialize editor from editor store ----------
+useEffect(() => {
+  if (!projectId) return;
 
-    log("INITIALIZE EDITOR", {
-      projectId,
-    });
+  log("INITIALIZE EDITOR", {
+    projectId,
+  });
 
-    const existingState = editorStore.getEditorState(projectId);
+  const existingState = editorStore.getEditorState(projectId);
 
-    if (!existingState) {
-      editorStore.initEditor(projectId);
-    }
+  if (!existingState) {
+    editorStore.initEditor(projectId);
+  }
 
-    const latest = editorStore.getEditorState(projectId);
-
-    if (latest) setCanvasState(latest);
-  }, [projectId]);
+  // Only update if the state has actually changed
+  const latest = editorStore.getEditorState(projectId);
+  if (latest && JSON.stringify(latest) !== JSON.stringify(canvasState)) {
+    setCanvasState(latest);
+  }
+}, [projectId, editorStore, canvasState, setCanvasState]);
+// -------------------------------------------------------------------------------
   // -------------------------------------------------------------------------------
 
   return (
@@ -612,7 +619,7 @@ export default function Editor() {
               aria-label="Edit Actions"
               disabledKeys={
                 [!canUndo && "undo", !canRedo && "redo"].filter(
-                  Boolean,
+                  Boolean
                 ) as string[]
               }
             >
@@ -678,10 +685,11 @@ export default function Editor() {
             size="sm"
             startContent={<FiDownload />}
             variant="bordered"
-            onPress={() => setShowExportModal(true)}
+            onPress={() => setShowReportModal(true)}
           >
             Generate Report
           </Button>
+
           <Button
             className="bg-blue-600 text-white hover:bg-blue-700"
             size="sm"
@@ -783,7 +791,7 @@ export default function Editor() {
                               { x: pointer.x, y: pointer.y },
                             ],
                           }
-                        : prev,
+                        : prev
                     );
                   }
                 }
@@ -1023,6 +1031,18 @@ export default function Editor() {
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}
           onExport={handleExport}
+        />
+        <ExportModal
+          isExporting={isExporting}
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          onExport={handleExport}
+        />
+
+        <ExportReportModal
+          editorId={projectId ?? ""}
+          open={showReportModal}
+          onClose={() => setShowReportModal(false)}
         />
       </div>
     </div>
