@@ -1032,12 +1032,7 @@ useEffect(() => {
           onClose={() => setShowExportModal(false)}
           onExport={handleExport}
         />
-        <ExportModal
-          isExporting={isExporting}
-          isOpen={showExportModal}
-          onClose={() => setShowExportModal(false)}
-          onExport={handleExport}
-        />
+       
 
         <ExportReportModal
           editorId={projectId ?? ""}
