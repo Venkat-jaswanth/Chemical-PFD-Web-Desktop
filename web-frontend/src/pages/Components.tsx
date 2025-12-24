@@ -1,11 +1,15 @@
-import React, { useState } from "react";
-import { Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Select, SelectItem, Card, CardBody, CardFooter, Image, Tooltip } from "@heroui/react";
+import React, { useState, useRef } from "react";
+import { Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Select, SelectItem, Card, CardBody, CardFooter, Image, Tooltip, Badge } from "@heroui/react";
 import { useComponents } from "@/context/ComponentContext";
-import { ComponentItem } from "@/components/Canvas/types";
+import { ComponentItem, Grip } from "@/components/Canvas/types";
 
 export default function Components() {
     const { components, addComponent, updateComponent, deleteComponent } = useComponents();
     const { isOpen, onOpen, onOpenChange } = useDisclosure();
+
+    // Local type for handling input state (allows strings for "62.0")
+    type EditableGrip = Omit<Grip, 'x' | 'y'> & { x: string | number; y: string | number };
+    const [grips, setGrips] = useState<EditableGrip[]>([]);
 
     // Form State
     const [name, setName] = useState("");
@@ -13,9 +17,12 @@ export default function Components() {
     const [newCategory, setNewCategory] = useState("");
     const [iconFile, setIconFile] = useState<string | null>(null);
     const [svgFile, setSvgFile] = useState<string | null>(null);
-    const [grips, setGrips] = useState<{ x: number; y: number; side: "top" | "bottom" | "left" | "right" }[]>([]);
     const [legend, setLegend] = useState("");
     const [suffix, setSuffix] = useState("");
+
+    // Interactive Grip State
+    const [activeGripIndex, setActiveGripIndex] = useState<number | null>(0);
+    const imageRef = useRef<HTMLImageElement>(null);
 
     // Edit State
     const [editingComponent, setEditingComponent] = useState<{ category: string; name: string } | null>(null);
@@ -33,18 +40,84 @@ export default function Components() {
         }
     };
 
-    const handleAddGrip = () => {
-        setGrips([...grips, { x: 50, y: 50, side: "right" }]);
+    const handleGripCountChange = (count: number) => {
+        if (count < 0) return;
+
+        setGrips(prev => {
+            if (count > prev.length) {
+                // Add new grips
+                const newGrips = [...prev];
+                for (let i = prev.length; i < count; i++) {
+                    newGrips.push({ x: 50, y: 50, side: "right" });
+                }
+                return newGrips;
+            } else {
+                // Remove grips
+                return prev.slice(0, count);
+            }
+        });
+
+        // Reset active index logic if needed
+        if (count > 0 && (activeGripIndex === null || activeGripIndex >= count)) {
+            setActiveGripIndex(0);
+        } else if (count === 0) {
+            setActiveGripIndex(null);
+        }
     };
 
-    const updateGrip = (index: number, field: keyof typeof grips[0], value: any) => {
+    const updateGrip = (index: number, field: keyof EditableGrip, value: any) => {
         const newGrips = [...grips];
         newGrips[index] = { ...newGrips[index], [field]: value };
         setGrips(newGrips);
     };
 
     const removeGrip = (index: number) => {
-        setGrips(grips.filter((_, i) => i !== index));
+        const newGrips = grips.filter((_, i) => i !== index);
+        setGrips(newGrips);
+        // Adjust active index
+        if (activeGripIndex === index) {
+            setActiveGripIndex(null);
+        } else if (activeGripIndex !== null && activeGripIndex > index) {
+            setActiveGripIndex(activeGripIndex - 1);
+        }
+    };
+
+    const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (activeGripIndex === null || activeGripIndex >= grips.length) return;
+
+        // Use currentTarget (the wrapper) to get accurate dimensions relative to the image
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Calculate percentage relative to wrapper dimensions (which match image dimensions)
+        const xPercent = parseFloat(((x / rect.width) * 100).toFixed(4));
+        const yPercent = parseFloat(((y / rect.height) * 100).toFixed(4));
+
+        const clampedX = Math.max(0, Math.min(100, xPercent));
+        const clampedY = Math.max(0, Math.min(100, yPercent));
+
+        // Determine side based on proximity to edges (simple heuristic)
+        let side: "top" | "bottom" | "left" | "right" = grips[activeGripIndex].side;
+        const distTop = clampedY;
+        const distBottom = 100 - clampedY;
+        const distLeft = clampedX;
+        const distRight = 100 - clampedX;
+        const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+
+        if (minDist === distTop) side = "top";
+        else if (minDist === distBottom) side = "bottom";
+        else if (minDist === distLeft) side = "left";
+        else if (minDist === distRight) side = "right";
+
+        const newGrips = [...grips];
+        newGrips[activeGripIndex] = { x: clampedX, y: clampedY, side };
+        setGrips(newGrips);
+
+        // Auto-advance
+        if (activeGripIndex < grips.length - 1) {
+            setActiveGripIndex(activeGripIndex + 1);
+        }
     };
 
     // Open modal specific for editing
@@ -59,7 +132,10 @@ export default function Components() {
         setSuffix(item.suffix || "");
         setIconFile(typeof item.icon === 'string' ? item.icon : (item.icon as any)?.src || "");
         setSvgFile(typeof item.svg === 'string' ? item.svg : (item.svg as any)?.src || "");
-        setGrips(item.grips ? item.grips.map(g => ({ ...g })) : []);
+
+        const initialGrips = item.grips ? item.grips.map(g => ({ ...g })) : [];
+        setGrips(initialGrips);
+        setActiveGripIndex(initialGrips.length > 0 ? 0 : null);
 
         onOpen();
     };
@@ -75,6 +151,7 @@ export default function Components() {
         setIconFile(null);
         setSvgFile(null);
         setGrips([]);
+        setActiveGripIndex(null);
         onOpen();
     };
 
@@ -91,6 +168,13 @@ export default function Components() {
 
         const finalCategory = newCategory || category;
 
+        // Clean grips to ensure they are numbers for the final object
+        const cleanGrips: Grip[] = grips.map(g => ({
+            ...g,
+            x: typeof g.x === 'string' ? parseFloat(g.x) || 0 : g.x,
+            y: typeof g.y === 'string' ? parseFloat(g.y) || 0 : g.y
+        }));
+
         // Construct new component object as per requirements
         const newComponent: ComponentItem = {
             name,
@@ -99,7 +183,7 @@ export default function Components() {
             class: finalCategory,
             object: name.replace(/\s+/g, ''),
             args: [],
-            grips,
+            grips: cleanGrips,
             isCustom: true,
             legend,
             suffix
@@ -146,8 +230,8 @@ export default function Components() {
                         </h2>
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             {Object.values(items).map((item) => (
-                                <Tooltip content={<div className="text-xs"><div className="font-bold">{item.name}</div></div>}>
-                                    <Card key={item.name} isPressable className="border-none bg-white dark:bg-gray-800 shadow-sm hover:shadow-md group relative">
+                                <Tooltip key={item.name} content={<div className="text-xs"><div className="font-bold">{item.name}</div></div>}>
+                                    <Card isPressable className="border-none bg-white dark:bg-gray-800 shadow-sm hover:shadow-md group relative">
                                         <CardBody className="p-4 flex items-center justify-center bg-gray-50/50 dark:bg-gray-900/50">
                                             <div className="w-16 h-16 flex items-center justify-center">
                                                 <Image
@@ -182,7 +266,7 @@ export default function Components() {
             </div>
 
             {/* Add Component Modal */}
-            <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl" scrollBehavior="inside">
+            <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="3xl" scrollBehavior="inside">
                 <ModalContent>
                     {(onClose) => (
                         <>
@@ -190,8 +274,9 @@ export default function Components() {
                                 {editingComponent ? `Edit ${editingComponent.name}` : "Add New Component"}
                             </ModalHeader>
                             <ModalBody>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="col-span-2">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Left Column: Form Fields */}
+                                    <div className="space-y-4">
                                         <Input
                                             label="Component Name"
                                             placeholder="e.g. My Custom Heat Exchanger"
@@ -199,9 +284,7 @@ export default function Components() {
                                             onValueChange={setName}
                                             isRequired
                                         />
-                                    </div>
 
-                                    <div>
                                         <Select
                                             label="Category"
                                             placeholder="Select category"
@@ -217,9 +300,7 @@ export default function Components() {
                                                 </SelectItem>
                                             ))}
                                         </Select>
-                                    </div>
 
-                                    <div>
                                         <Input
                                             label="New Category (Optional)"
                                             placeholder="Or create new..."
@@ -229,117 +310,150 @@ export default function Components() {
                                                 if (val) setCategory("");
                                             }}
                                         />
-                                    </div>
 
-                                    <div className="flex gap-4 col-span-2">
-                                        <div className="flex-1">
-                                            <Input
-                                                label="Legend"
-                                                placeholder="e.g. HEX"
-                                                value={legend}
-                                                onValueChange={setLegend}
-                                            />
-                                        </div>
-                                        <div className="flex-1">
-                                            <Input
-                                                label="Suffix"
-                                                placeholder="e.g. A/B"
-                                                value={suffix}
-                                                onValueChange={setSuffix}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="col-span-2 border p-6 rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                                        <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-4">Component Images</h3>
-                                        <div className="flex flex-col gap-6">
-                                            <div className="flex items-center gap-6">
-                                                <div className="flex-1">
-                                                    <label className="block text-sm font-medium mb-2 text-gray-600 dark:text-gray-400">Toolbar Icon (PNG)</label>
-                                                    <p className="text-xs text-gray-400 mb-2">Small icon shown in the sidebar</p>
-                                                    <input type="file" accept="image/png" onChange={(e) => handleFileChange(e, 'icon')} className="block w-full text-sm text-gray-500
-                                                        file:mr-4 file:py-2 file:px-4
-                                                        file:rounded-full file:border-0
-                                                        file:text-sm file:font-semibold
-                                                        file:bg-blue-50 file:text-blue-700
-                                                        hover:file:bg-blue-100
-                                                    "/>
-                                                </div>
-                                                {iconFile && (
-                                                    <div className="p-2 border rounded bg-white">
-                                                        <img src={iconFile} alt="Preview" className="h-12 w-12 object-contain" />
-                                                    </div>
-                                                )}
+                                        <div className="flex gap-4">
+                                            <div className="flex-1">
+                                                <Input
+                                                    label="Legend"
+                                                    placeholder="e.g. HEX"
+                                                    value={legend}
+                                                    onValueChange={setLegend}
+                                                />
                                             </div>
+                                            <div className="flex-1">
+                                                <Input
+                                                    label="Suffix"
+                                                    placeholder="e.g. A/B"
+                                                    value={suffix}
+                                                    onValueChange={setSuffix}
+                                                />
+                                            </div>
+                                        </div>
 
-                                            <div className="w-full h-px bg-gray-200 dark:bg-gray-700"></div>
-
-                                            <div className="flex items-center gap-6">
-                                                <div className="flex-1">
-                                                    <label className="block text-sm font-medium mb-2 text-gray-600 dark:text-gray-400">Canvas SVG</label>
-                                                    <p className="text-xs text-gray-400 mb-2">Scalable graphic drawn on the canvas</p>
-                                                    <input type="file" accept="image/svg+xml" onChange={(e) => handleFileChange(e, 'svg')} className="block w-full text-sm text-gray-500
-                                                        file:mr-4 file:py-2 file:px-4
-                                                        file:rounded-full file:border-0
-                                                        file:text-sm file:font-semibold
-                                                        file:bg-purple-50 file:text-purple-700
-                                                        hover:file:bg-purple-100
-                                                    "/>
-                                                </div>
-                                                {svgFile && (
-                                                    <div className="p-2 border rounded bg-white">
-                                                        <img src={svgFile} alt="Preview" className="h-12 w-12 object-contain" />
-                                                    </div>
-                                                )}
+                                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                                            <label className="block text-sm font-medium mb-2 text-gray-600 dark:text-gray-400">Component Images</label>
+                                            <div className="flex flex-col gap-3">
+                                                <Input
+                                                    type="file"
+                                                    label="Toolbar Icon (PNG)"
+                                                    labelPlacement="outside"
+                                                    accept="image/png"
+                                                    onChange={(e) => handleFileChange(e, 'icon')}
+                                                />
+                                                <Input
+                                                    type="file"
+                                                    label="Canvas SVG"
+                                                    labelPlacement="outside"
+                                                    accept="image/svg+xml,image/png,image/jpeg"
+                                                    onChange={(e) => handleFileChange(e, 'svg')}
+                                                />
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="col-span-2">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label className="font-medium">Connection Grips ({grips.length})</label>
-                                            <Button size="sm" variant="flat" onPress={handleAddGrip}>+ Add Grip</Button>
+                                    {/* Right Column: Grip Editor */}
+                                    <div className="space-y-4">
+                                        <h3 className="font-semibold text-gray-700 dark:text-gray-300">Grip Configuration</h3>
+
+                                        {/* Grip Count Input */}
+                                        <div className="flex items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                            <label className="text-sm font-medium">Number of Grips:</label>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                max={20}
+                                                value={grips.length.toString()}
+                                                onValueChange={(v) => handleGripCountChange(parseInt(v) || 0)}
+                                                className="w-24"
+                                            />
                                         </div>
 
-                                        <div className="space-y-2 max-h-60 overflow-y-auto p-1">
+                                        {/* Preview Area */}
+                                        <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center overflow-hidden p-4">
+                                            {svgFile ? (
+                                                <div
+                                                    className="relative inline-flex justify-center items-center cursor-crosshair group"
+                                                    style={{ maxWidth: '100%', maxHeight: '100%' }}
+                                                    onClick={handleImageClick}
+                                                >
+                                                    <img
+                                                        ref={imageRef}
+                                                        src={svgFile}
+                                                        alt="Grip Preview"
+                                                        className="max-w-full max-h-full object-contain pointer-events-none select-none"
+                                                        style={{ width: 'auto', height: 'auto' }}
+                                                    />
+
+                                                    {/* Grip Markers */}
+                                                    {grips.map((grip, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            className={`absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-transform hover:scale-125
+                                                                ${activeGripIndex === idx ? 'bg-primary text-white border-white ring-2 ring-primary/50' : 'bg-white text-gray-700 border-gray-400'}
+                                                            `}
+                                                            style={{
+                                                                left: `${grip.x}%`,
+                                                                top: `${grip.y}%`
+                                                            }}
+                                                            // Stop propagation
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveGripIndex(idx);
+                                                            }}
+                                                        >
+                                                            {idx + 1}
+                                                        </div>
+                                                    ))}
+
+                                                    {/* Hover hint removed as requested/implied for cleanliness */}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center text-gray-400 p-4">
+                                                    <p>Upload an SVG/Image to place grips interactively</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Grip List */}
+                                        <div className="space-y-2 max-h-60 overflow-y-auto p-1 text-sm">
                                             {grips.map((grip, idx) => (
-                                                <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm">
+                                                <div
+                                                    key={idx}
+                                                    className={`
+                                                        grid grid-cols-12 gap-2 items-center p-2 rounded-lg border transition-colors cursor-pointer
+                                                        ${activeGripIndex === idx ? 'bg-primary/5 border-primary' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}
+                                                    `}
+                                                    onClick={() => setActiveGripIndex(idx)}
+                                                >
                                                     <div className="col-span-1 flex justify-center">
-                                                        <div className="h-6 w-6 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500">
+                                                        <div className={`h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold
+                                                             ${activeGripIndex === idx ? 'bg-primary text-white' : 'bg-gray-200 text-gray-500'}
+                                                        `}>
                                                             {idx + 1}
                                                         </div>
                                                     </div>
-                                                    <div className="col-span-3">
+                                                    <div className="col-span-10 grid grid-cols-3 gap-2">
                                                         <Input
-                                                            type="number"
-                                                            label="X Pos %"
-                                                            placeholder="0-100"
-                                                            labelPlacement="outside"
-                                                            size="md"
+                                                            type="text"
+                                                            size="sm"
+                                                            startContent={<span className="text-xs text-gray-400">X%</span>}
                                                             value={grip.x.toString()}
-                                                            onValueChange={(v) => updateGrip(idx, 'x', parseFloat(v))}
-                                                            endContent={<div className="pointer-events-none flex items-center"><span className="text-default-400 text-small">%</span></div>}
+                                                            onValueChange={(v) => updateGrip(idx, 'x', v)}
+                                                            classNames={{ input: "text-right" }}
                                                         />
-                                                    </div>
-                                                    <div className="col-span-3">
                                                         <Input
-                                                            type="number"
-                                                            label="Y Pos %"
-                                                            placeholder="0-100"
-                                                            labelPlacement="outside"
-                                                            size="md"
+                                                            type="text"
+                                                            size="sm"
+                                                            startContent={<span className="text-xs text-gray-400">Y%</span>}
                                                             value={grip.y.toString()}
-                                                            onValueChange={(v) => updateGrip(idx, 'y', parseFloat(v))}
-                                                            endContent={<div className="pointer-events-none flex items-center"><span className="text-default-400 text-small">%</span></div>}
+                                                            onValueChange={(v) => updateGrip(idx, 'y', v)}
+                                                            classNames={{ input: "text-right" }}
                                                         />
-                                                    </div>
-                                                    <div className="col-span-4">
                                                         <Select
-                                                            label="Side"
-                                                            labelPlacement="outside"
-                                                            size="md"
-                                                            defaultSelectedKeys={[grip.side]}
+                                                            size="sm"
+                                                            selectedKeys={[grip.side]}
                                                             onChange={(e) => updateGrip(idx, 'side', e.target.value)}
+                                                            aria-label="Grip Side"
                                                         >
                                                             <SelectItem key="top">Top</SelectItem>
                                                             <SelectItem key="bottom">Bottom</SelectItem>
@@ -354,10 +468,9 @@ export default function Components() {
                                                     </div>
                                                 </div>
                                             ))}
-                                            {grips.length === 0 && <div className="text-sm text-gray-400 italic">No grips defined. Component will not be connectable.</div>}
+                                            {grips.length === 0 && <div className="text-center text-gray-400 italic py-2">Set number of grips above</div>}
                                         </div>
                                     </div>
-
                                 </div>
                             </ModalBody>
                             <ModalFooter className="flex justify-between">
