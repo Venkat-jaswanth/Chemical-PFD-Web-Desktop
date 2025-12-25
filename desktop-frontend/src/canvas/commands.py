@@ -24,6 +24,23 @@ class AddCommand(QUndoCommand):
             self.component.hide()
             self.canvas.update()
 
+class AddConnectionCommand(QUndoCommand):
+    def __init__(self, canvas, connection):
+        super().__init__()
+        self.canvas = canvas
+        self.connection = connection
+        self.setText("Add Connection")
+
+    def redo(self):
+        if self.connection not in self.canvas.connections:
+            self.canvas.connections.append(self.connection)
+            self.canvas.update()
+
+    def undo(self):
+        if self.connection in self.canvas.connections:
+            self.canvas.connections.remove(self.connection)
+            self.canvas.update()
+
 class DeleteCommand(QUndoCommand):
     def __init__(self, canvas, components, connections):
         super().__init__()
