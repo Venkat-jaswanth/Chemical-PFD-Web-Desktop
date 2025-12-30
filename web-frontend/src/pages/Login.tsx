@@ -1,6 +1,14 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Input, Card, CardBody, CardHeader, Divider } from "@heroui/react";
+import {
+  Button,
+  Input,
+  Card,
+  CardBody,
+  CardHeader,
+  Divider,
+} from "@heroui/react";
+
 import { loginUser } from "../api/auth";
 
 export default function Login() {
@@ -28,20 +36,22 @@ export default function Login() {
       <Card className="w-full max-w-md p-4">
         <CardHeader className="flex flex-col gap-1 items-start">
           <h1 className="text-2xl font-bold">Welcome Back</h1>
-          <p className="text-small text-default-500">Log in to access your diagrams</p>
+          <p className="text-small text-default-500">
+            Log in to access your diagrams
+          </p>
         </CardHeader>
 
         <Divider className="my-2" />
 
         <CardBody>
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <form className="flex flex-col gap-4" onSubmit={handleLogin}>
             <Input
               isRequired
               label="Username"
               placeholder="Enter your username"
               type="text"
-              variant="bordered"
               value={username}
+              variant="bordered"
               onValueChange={setUsername}
             />
             <Input
@@ -49,18 +59,23 @@ export default function Login() {
               label="Password"
               placeholder="Enter your password"
               type="password"
-              variant="bordered"
               value={password}
+              variant="bordered"
               onValueChange={setPassword}
             />
 
             <div className="flex justify-end">
-              <Link to="#" className="text-xs text-primary hover:underline">
+              <Link className="text-xs text-primary hover:underline" to="#">
                 Forgot password?
               </Link>
             </div>
 
-            <Button color="primary" type="submit" className="w-full font-semibold" isLoading={isLoading}>
+            <Button
+              className="w-full font-semibold"
+              color="primary"
+              isLoading={isLoading}
+              type="submit"
+            >
               Sign In
             </Button>
           </form>
@@ -68,7 +83,10 @@ export default function Login() {
           <div className="mt-4 text-center text-sm">
             <p className="text-gray-500">
               Don&apos;t have an account?{" "}
-              <Link to="/register" className="text-primary font-bold hover:underline">
+              <Link
+                className="text-primary font-bold hover:underline"
+                to="/register"
+              >
                 Sign Up
               </Link>
             </p>
