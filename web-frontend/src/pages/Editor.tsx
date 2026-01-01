@@ -66,8 +66,8 @@ export default function Editor() {
   const [rightCollapsed, setRightCollapsed] = useState(false);
   const [snapToGrid, setSnapToGrid] = useState(true);
 
-const [gridSize, setGridSize] = useState(20);  
-// In your state section, add:
+  const [gridSize, setGridSize] = useState(20);
+  // In your state section, add:
   const [isImporting, setIsImporting] = useState(false);
   // Get editor store methods
   const editorStore = useEditorStore();
@@ -108,119 +108,170 @@ const [gridSize, setGridSize] = useState(20);
   const [showGrid, setShowGrid] = useState(true);
 
 
-    const [isExporting, setIsExporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-    
-const handleImportDiagram = async (event: React.ChangeEvent<HTMLInputElement>) => {
-  const file = event.target.files?.[0];
-  if (!file || !projectId) return;
-  
-  setIsImporting(true);
-  
-  try {
-    const importData = await importFromDiagramFile(file);
-    const migratedData = migrateExportData(importData);
-    
-    // Restore the canvas state
-    editorStore.hydrateEditor(projectId, migratedData.canvasState);
-    
-    // Restore viewport settings
-    setStageScale(migratedData.viewport.scale);
-    setStagePos(migratedData.viewport.position);
-    setGridSize(migratedData.viewport.gridSize);
-    setShowGrid(migratedData.viewport.showGrid);
-    setSnapToGrid(migratedData.viewport.snapToGrid);
-    
-    alert(`Diagram "${migratedData.project.name}" imported successfully!`);
-  } catch (error) {
-    console.error('Import failed:', error);
-    alert(`Import failed: ${(error as Error).message}`);
-  } finally {
-    setIsImporting(false);
-    event.target.value = ''; // Reset file input
-  }
-};
-// In your Editor.tsx handleExport function:
-const handleExport = async (options: ExportOptions) => {
-  if (!projectId || !currentState) {
-    alert('No project loaded');
-    return;
-  }
+  // Add this component inside your Editor component, after all state declarations
+  const FileDropZone = () => {
+    const [isDragging, setIsDragging] = useState(false);
 
-  setIsExporting(true);
-  
-  // Save current grid state for image exports
-  const originalShowGrid = showGrid;
-  
-  try {
-    if (options.format === 'export') {
-      // Custom diagram file export
-      const exportData = createExportData(
-        currentState,
-        {
-          scale: stageScale,
-          position: stagePos,
-          gridSize: gridSize,
-          showGrid: showGrid,
-          snapToGrid: snapToGrid,
-        },
-        projectId,
-        `Diagram ${projectId}`
-      );
-      
-      exportToDiagramFile(exportData, `diagram-${projectId}.export`);
-      setShowExportModal(false);
+    const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+
+      const file = e.dataTransfer.files[0];
+      if (!file || !file.name.endsWith('.export')) return;
+
+      // Create a synthetic event for handleImportDiagram
+      const syntheticEvent = {
+        target: {
+          files: [file]
+        }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+
+      await handleImportDiagram(syntheticEvent);
+    };
+
+    if (!isDragging) return null;
+
+    return (
+      <div
+        className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 backdrop-blur-sm border-4 border-dashed border-blue-400 rounded-lg"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-2xl">
+          <TbFileImport className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
+            Drop Diagram File Here
+          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            .export files only
+          </p>
+        </div>
+      </div>
+    );
+  };
+  const handleImportDiagram = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !projectId) return;
+
+    setIsImporting(true);
+
+    try {
+      const importData = await importFromDiagramFile(file);
+      const migratedData = migrateExportData(importData);
+
+      // Restore the canvas state
+      editorStore.hydrateEditor(projectId, migratedData.canvasState);
+
+      // Restore viewport settings
+      setStageScale(migratedData.viewport.scale);
+      setStagePos(migratedData.viewport.position);
+      setGridSize(migratedData.viewport.gridSize);
+      setShowGrid(migratedData.viewport.showGrid);
+      setSnapToGrid(migratedData.viewport.snapToGrid);
+
+      alert(`Diagram "${migratedData.project.name}" imported successfully!`);
+    } catch (error) {
+      console.error('Import failed:', error);
+      alert(`Import failed: ${(error as Error).message}`);
+    } finally {
+      setIsImporting(false);
+      event.target.value = ''; // Reset file input
+    }
+  };
+  // In your Editor.tsx handleExport function:
+  const handleExport = async (options: ExportOptions) => {
+    if (!projectId || !currentState) {
+      alert('No project loaded');
       return;
     }
-    
-    // Original image export code
-    if (!stageRef.current) {
-      throw new Error('Stage not available');
-    }
 
-    // Temporarily update grid visibility for image exports
-    if (options.includeGrid !== undefined) {
-      setShowGrid(options.includeGrid);
-    }
-    
-    // Force a re-render to update the canvas
-    await new Promise(resolve => setTimeout(resolve, 50));
+    setIsExporting(true);
 
-    // Use the updated exportDiagram function with connections
-    const result = await exportDiagram(
-      stageRef.current,
-      droppedItems,
-      {
-        ...options,
-        connections: connections,
+    // Save current grid state for image exports
+    const originalShowGrid = showGrid;
+
+    try {
+      if (options.format === 'export') {
+        // Custom diagram file export
+        const exportData = createExportData(
+          currentState,
+          {
+            scale: stageScale,
+            position: stagePos,
+            gridSize: gridSize,
+            showGrid: showGrid,
+            snapToGrid: snapToGrid,
+          },
+          projectId,
+          `Diagram ${projectId}`
+        );
+
+        exportToDiagramFile(exportData, `diagram-${projectId}.export`);
+        setShowExportModal(false);
+        return;
       }
-    );
 
-    const timestamp = new Date().toISOString().split('T')[0];
-    const filename = `diagram-${timestamp}.${options.format}`;
-    
-     downloadBlob(result as Blob, filename);
-    
-    
-    setShowExportModal(false);
-  } catch (error) {
-    console.error('Export failed:', error);
-    alert(`Export failed: ${(error as Error).message}`);
-  } finally {
-    // Always restore original grid state for image exports
-    if (options.format !== 'export') {
-      setShowGrid(originalShowGrid);
+      // Original image export code
+      if (!stageRef.current) {
+        throw new Error('Stage not available');
+      }
+
+      // Temporarily update grid visibility for image exports
+      if (options.includeGrid !== undefined) {
+        setShowGrid(options.includeGrid);
+      }
+
+      // Force a re-render to update the canvas
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Use the updated exportDiagram function with connections
+      const result = await exportDiagram(
+        stageRef.current,
+        droppedItems,
+        {
+          ...options,
+          connections: connections,
+        }
+      );
+
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `diagram-${timestamp}.${options.format}`;
+
+      downloadBlob(result as Blob, filename);
+
+
+      setShowExportModal(false);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert(`Export failed: ${(error as Error).message}`);
+    } finally {
+      // Always restore original grid state for image exports
+      if (options.format !== 'export') {
+        setShowGrid(originalShowGrid);
+      }
+      setIsExporting(false);
     }
-    setIsExporting(false);
-  }
-};
-useEffect(() => {
-  if (showExportModal) {
-    // Clear all selections when export modal opens
-    setSelectedItemIds(new Set());
-    setSelectedConnectionIds(new Set());
-  }
-}, [showExportModal]);
+  };
+  useEffect(() => {
+    if (showExportModal) {
+      // Clear all selections when export modal opens
+      setSelectedItemIds(new Set());
+      setSelectedConnectionIds(new Set());
+    }
+  }, [showExportModal]);
 
   // --- State ---
   const { components } = useComponents();
@@ -950,24 +1001,24 @@ useEffect(() => {
         </div>
 
         <div className="flex gap-2">
-          <ThemeSwitch /> 
-            <Button
-              className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300"
-              size="sm"
-              startContent={<TbFileImport />}
-              variant="bordered"
-              onPress={() => {
-                // Create a hidden file input
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.export';
-                input.onchange = (e) => handleImportDiagram(e as any);
-                input.click();
-              }}
-              isLoading={isImporting}
-            >
-              Import
-            </Button>
+          <ThemeSwitch />
+          <Button
+            className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+            size="sm"
+            startContent={<TbFileImport />}
+            variant="bordered"
+            onPress={() => {
+              // Create a hidden file input
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.export';
+              input.onchange = (e) => handleImportDiagram(e as any);
+              input.click();
+            }}
+            isLoading={isImporting}
+          >
+            Import
+          </Button>
           <Button
             className="border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300"
             size="sm"
@@ -1035,12 +1086,43 @@ useEffect(() => {
         </div>
 
         {/* Canvas Area - Konva */}
+        {/* Canvas Area - Konva */}
         <div
           ref={containerRef}
           className="relative min-w-0 overflow-hidden bg-white"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
+          onDragOver={(e) => {
+            e.preventDefault(); // Allow drop
+            // Also handle file drags
+            if (e.dataTransfer.types.includes('Files')) {
+              e.dataTransfer.dropEffect = 'copy';
+            }
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+
+            // First check if it's a file drop (for .export files)
+            if (e.dataTransfer.files.length > 0) {
+              const file = e.dataTransfer.files[0];
+              if (file.name.endsWith('.export')) {
+                // Create a synthetic event for handleImportDiagram
+                const syntheticEvent = {
+                  target: {
+                    files: [file]
+                  }
+                } as unknown as React.ChangeEvent<HTMLInputElement>;
+                handleImportDiagram(syntheticEvent);
+                return;
+              }
+            }
+
+            // Otherwise, it's a component drag from the sidebar
+            handleDrop(e);
+          }}
         >
+          <FileDropZone />
           <Stage
             ref={stageRef}
             draggable
@@ -1378,10 +1460,12 @@ useEffect(() => {
           {/* Empty State Overlay */}
           {droppedItems.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center p-6 bg-white/80 backdrop-blur rounded-xl border border-gray-200 shadow-sm">
-                <div className="text-gray-500 font-medium">Canvas Empty</div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Drag components from the sidebar
+              <div className="text-center p-6 bg-white/20 backdrop-blur rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-black font-medium">Canvas Empty</div>
+                <div className="text-sm text-gray-400 mt-1">
+                  Drag components from the sidebar <br></br>
+                  <span className="font-bold">or</span> drag and drop a .pfd file
+                  started.
                 </div>
               </div>
             </div>
@@ -1425,7 +1509,7 @@ useEffect(() => {
           onClose={() => setShowExportModal(false)}
           onExport={handleExport}
         />
-        
+
 
         <ExportReportModal
           editorId={projectId ?? ""}
