@@ -107,10 +107,10 @@ export interface ExportPreset {
 }
 
  
-export type ExportFormat = 'png' | 'jpg' | 'pdf' | 'svg';
+export type ExportFormat = 'png' | 'jpg' | 'pdf' | 'export';
 export type ExportQuality = 'low' | 'medium' | 'high';
 export interface ExportOptions {
-  format: 'png' | 'jpg' | 'pdf';
+  format: 'png' | 'jpg' | 'pdf' | 'export';
   scale: number;
   backgroundColor: string;
   padding: number;
@@ -186,3 +186,38 @@ export const exportPresets = [
     },
   },
 ];
+// Add interface for the custom export format
+export interface DiagramExportData {
+  // Document metadata
+  version: string;
+  exportedAt: string;
+  editorVersion: string;
+  
+  // Canvas state (what's needed to restore everything)
+  canvasState: {
+    items: CanvasItem[];
+    connections: Connection[];
+    counts: Record<string, number>;
+    sequenceCounter: number;
+  };
+  
+  // Viewport state (so we can restore zoom/position)
+  viewport: {
+    scale: number;
+    position: { x: number; y: number };
+    gridSize: number;
+    showGrid: boolean;
+    snapToGrid: boolean;
+  };
+  
+  // Project metadata
+  project: {
+    id: string;
+    name: string;
+    createdAt: string;
+    lastModified: string;
+  };
+  
+  // Export settings used
+  exportSettings?: Partial<ExportOptions>;
+}
