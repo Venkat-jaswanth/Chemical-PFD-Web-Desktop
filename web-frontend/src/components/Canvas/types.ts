@@ -109,17 +109,15 @@ export interface ExportPreset {
  
 export type ExportFormat = 'png' | 'jpg' | 'pdf' | 'svg';
 export type ExportQuality = 'low' | 'medium' | 'high';
-
 export interface ExportOptions {
-  format: ExportFormat;
+  format: 'png' | 'jpg' | 'pdf';
   scale: number;
-  quality: ExportQuality;
+  backgroundColor: string;
   padding: number;
-  backgroundColor: string | 'transparent';
-  showGrid?: boolean;  
-  includeWatermark?: boolean;
-  watermarkText?: string;
-  includeGrid?: boolean; 
+  showGrid: boolean;
+  includeGrid: boolean;
+  quality: 'low' | 'medium' | 'high';
+  connections?: Connection[];
 }
 
 export const defaultExportOptions: ExportOptions = {

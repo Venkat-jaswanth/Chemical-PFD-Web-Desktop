@@ -100,6 +100,7 @@ export default function Editor() {
 
     const [isExporting, setIsExporting] = useState(false);
 
+// In your Editor.tsx handleExport function:
 const handleExport = async (options: ExportOptions) => {
   setIsExporting(true);
   
@@ -119,11 +120,14 @@ const handleExport = async (options: ExportOptions) => {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    // Use the new exportDiagram function
+    // Use the updated exportDiagram function with connections
     const result = await exportDiagram(
       stageRef.current,
       droppedItems,
-      options
+      {
+        ...options,
+        connections: connections, // Pass connections here
+      }
     );
 
     // Generate filename
@@ -131,7 +135,11 @@ const handleExport = async (options: ExportOptions) => {
     const filename = `diagram-${timestamp}.${options.format}`;
     
     // Download based on format
-    downloadBlob(result as Blob, filename);
+    if (options.format === 'svg') {
+      downloadSVG(result as string, filename);
+    } else {
+      downloadBlob(result as Blob, filename);
+    }
     
     setShowExportModal(false);
   } catch (error) {
