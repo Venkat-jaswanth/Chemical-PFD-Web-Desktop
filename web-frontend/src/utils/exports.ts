@@ -252,6 +252,10 @@ function createExportStage(
 /* -------------------------------------------
    IMAGE EXPORT (PNG / JPG) - DEBUGGED VERSION
 -------------------------------------------- */
+/* -------------------------------------------
+   IMAGE EXPORT (PNG / JPG) - FIXED VERSION
+   (No duplicate connection rendering)
+-------------------------------------------- */
 export async function exportToImage(
   stage: Konva.Stage,
   options: ExportOptions,
@@ -262,57 +266,62 @@ export async function exportToImage(
     throw new Error('Nothing to export');
   }
 
-  const padding = options.padding ?? 20; // Reduced padding
+  const padding = options.padding ?? 20;
   const bounds = getContentBounds(items, connections);
   
   console.log('Export bounds:', bounds);
-  console.log('Item count:', items.length);
-  console.log('Connection count:', connections.length);
 
-  // Create export stage
-  const { stage: exportStage, container } = createExportStage(
-    stage,
-    items,
-    connections,
-    options.showGrid || options.includeGrid
-  );
+  // ✅ FIX 1: Instead of creating a new stage with rendered connections,
+  // just use a clone of the existing stage which already has connections
+  const exportStage = stage.clone({
+    listening: false,
+  });
 
   try {
-    // Add background layer
-    const bgLayer = new Konva.Layer({ listening: false });
-    const bgRect = new Konva.Rect({
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
-      fill: options.backgroundColor === 'transparent' 
-        ? '#ffffff' 
-        : options.backgroundColor,
-      listening: false,
+    // ✅ FIX 2: Remove any temporary/non-exportable elements
+    // (like selection rectangles, hover effects, etc.)
+    exportStage.find('*').forEach((node: any) => {
+      const nodeName = node.name?.();
+      if (nodeName?.includes('selection') || 
+          nodeName?.includes('hover') ||
+          nodeName?.includes('temp') ||
+          nodeName?.includes('grip')) {
+        node.destroy();
+      }
     });
-    bgLayer.add(bgRect);
-    exportStage.add(bgLayer);
-    bgLayer.moveToBottom();
+
+    // ✅ FIX 3: Handle grid visibility
+    if (!(options.showGrid || options.includeGrid)) {
+      exportStage.find('.grid-layer, .grid').forEach((node: any) => {
+        node.destroy();
+      });
+    }
+
+    // ✅ FIX 4: Add background if needed
+    if (options.backgroundColor !== 'transparent') {
+      const bgLayer = new Konva.Layer({ listening: false });
+      const bgRect = new Konva.Rect({
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width,
+        height: bounds.height,
+        fill: options.backgroundColor || '#ffffff',
+        listening: false,
+      });
+      bgLayer.add(bgRect);
+      exportStage.add(bgLayer);
+      bgLayer.moveToBottom();
+    }
 
     exportStage.draw();
 
-    // Debug: Log what we're about to export
-    console.log('Export area:', {
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
-      scale: options.scale,
-      bounds
-    });
-
-    // Export the exact area - no additional padding in toDataURL
+    // Export the exact area
     const dataUrl = exportStage.toDataURL({
       x: bounds.x,
       y: bounds.y,
       width: bounds.width,
       height: bounds.height,
-      pixelRatio: options.scale || 1, // Use specified scale, default to 1
+      pixelRatio: options.scale || 1,
       mimeType: options.format === 'jpg' ? 'image/jpeg' : 'image/png',
       quality: options.format === 'jpg' 
         ? options.quality === 'high' ? 0.95 
@@ -323,9 +332,6 @@ export async function exportToImage(
 
     // Cleanup
     exportStage.destroy();
-    if (container.parentNode) {
-      document.body.removeChild(container);
-    }
 
     // Convert to blob
     const response = await fetch(dataUrl);
@@ -335,11 +341,7 @@ export async function exportToImage(
     return blob;
   } catch (error) {
     console.error('Export error:', error);
-    // Ensure cleanup even on error
     exportStage.destroy();
-    if (container.parentNode) {
-      document.body.removeChild(container);
-    }
     throw error;
   }
 }
