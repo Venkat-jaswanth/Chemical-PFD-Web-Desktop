@@ -103,6 +103,7 @@ class RecentProjectItem(QWidget):
 # Landing Page Screen
 class LandingPage(QWidget):
     new_project_clicked = pyqtSignal()
+    open_project_clicked = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -171,6 +172,7 @@ class LandingPage(QWidget):
         cards_layout.addWidget(self.new_card)
 
         self.open_card = ActionCard("📂", "Open Project", "Open an existing PFD file")
+        self.open_card.clicked.connect(self.open_project_clicked.emit)
         cards_layout.addWidget(self.open_card)
 
         center_layout.addLayout(cards_layout)

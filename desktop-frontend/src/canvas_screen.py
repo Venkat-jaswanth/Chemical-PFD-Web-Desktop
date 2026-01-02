@@ -11,10 +11,157 @@ from src.navigation import slide_to_index
 import src.app_state as app_state
 from src.theme_manager import theme_manager
 
+class ImageSubWindow(QMdiSubWindow):
+    def __init__(self, image_path, parent=None):
+        super().__init__(parent)
+        self.image_path = image_path
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        
+        self.scale_factor = 1.0
+        self.original_pixmap = None
+        
+        # Scroll Area
+        self.scroll_area = QtWidgets.QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.setWidget(self.scroll_area)
+        
+        # Image Label
+        self.image_label = QtWidgets.QLabel()
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.scroll_area.setWidget(self.image_label)
+        
+        self.load_image()
+        
+    def load_image(self):
+        from PyQt5.QtGui import QPixmap
+        self.original_pixmap = QPixmap(self.image_path)
+        if not self.original_pixmap.isNull():
+            self.image_label.setPixmap(self.original_pixmap)
+        else:
+            self.image_label.setText("Failed to load image.")
+
+    def wheelEvent(self, event):
+        if event.modifiers() & Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_in()
+            else:
+                self.zoom_out()
+            event.accept()
+        else:
+            super().wheelEvent(event)
+
+    def zoom_in(self):
+        self.scale_factor *= 1.1
+        self.update_image_size()
+
+    def zoom_out(self):
+        self.scale_factor /= 1.1
+        if self.scale_factor < 0.1: self.scale_factor = 0.1
+        self.update_image_size()
+
+    def update_image_size(self):
+        if self.original_pixmap and not self.original_pixmap.isNull():
+            new_size = self.original_pixmap.size() * self.scale_factor
+            self.image_label.setPixmap(
+                self.original_pixmap.scaled(
+                    new_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+            )
+
+class PDFSubWindow(QMdiSubWindow):
+    def __init__(self, pdf_path, parent=None):
+        from PyQt5.QtWidgets import QVBoxLayout, QLabel, QScrollArea, QWidget
+        from PyQt5.QtCore import Qt
+        
+        super().__init__(parent)
+        self.pdf_path = pdf_path
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        
+        self.zoom_level = 1.5  # Initial zoom
+        self.doc = None
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.setWidget(self.scroll_area)
+
+        self.container = QWidget()
+        self.layout = QVBoxLayout(self.container)
+        self.layout.setSpacing(20)
+        self.layout.setAlignment(Qt.AlignCenter)
+        self.scroll_area.setWidget(self.container)
+        
+        self.load_pdf()
+
+    def load_pdf(self):
+        try:
+            import fitz  # PyMuPDF
+            self.doc = fitz.open(self.pdf_path)
+            self.render_pages()
+        except Exception as e:
+            err_lbl = QtWidgets.QLabel(f"Failed to load PDF: {str(e)}")
+            self.layout.addWidget(err_lbl)
+
+    def render_pages(self):
+        if not self.doc:
+            return
+
+        import fitz
+        from PyQt5.QtGui import QImage, QPixmap
+        from PyQt5.QtWidgets import QLabel
+        from PyQt5.QtCore import Qt
+
+        # Clear existing widgets
+        for i in reversed(range(self.layout.count())): 
+            widget = self.layout.itemAt(i).widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        # Render each page
+        for page_num in range(len(self.doc)):
+            page = self.doc.load_page(page_num)
+            pix = page.get_pixmap(matrix=fitz.Matrix(self.zoom_level, self.zoom_level))
+            
+            # Convert to QImage
+            fmt = QImage.Format_RGB888
+            if pix.alpha:
+                fmt = QImage.Format_RGBA8888
+                
+            qimg = QImage(pix.samples, pix.width, pix.height, pix.stride, fmt)
+            qpix = QPixmap.fromImage(qimg)
+            
+            lbl = QLabel()
+            lbl.setPixmap(qpix)
+            lbl.setAlignment(Qt.AlignCenter)
+            lbl.setStyleSheet("border: 1px solid #ccc; background-color: white;")
+            
+            self.layout.addWidget(lbl)
+
+    def wheelEvent(self, event):
+        if event.modifiers() & Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_in()
+            else:
+                self.zoom_out()
+            event.accept()
+        else:
+            super().wheelEvent(event)
+
+    def zoom_in(self):
+        self.zoom_level += 0.25
+        if self.zoom_level > 5.0: self.zoom_level = 5.0
+        self.render_pages()
+
+    def zoom_out(self):
+        self.zoom_level -= 0.25
+        if self.zoom_level < 0.5: self.zoom_level = 0.5
+        self.render_pages()
+
 class CanvasSubWindow(QMdiSubWindow):
     def closeEvent(self, event):
         canvas = self.widget()
-        if canvas:
+        if canvas and hasattr(canvas, "is_modified"): 
             from src.canvas.commands import handle_close_event
             handle_close_event(canvas, event)
         else:
@@ -311,19 +458,21 @@ class CanvasScreen(QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
     def on_open_file(self):
-        # Create new subwindow for open
-        self.on_new_project()
-        active_sub = self.mdi_area.currentSubWindow()
-        canvas = active_sub.widget()
-        
         options = QtWidgets.QFileDialog.Options()
-        filename, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Open Project", "", 
-            "Process Flow Diagram (*.pfd)", 
+        filename, filter_type = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Open File", "", 
+            "All Supported (*.pfd *.pdf *.jpg *.jpeg *.png);;Process Flow Diagram (*.pfd);;PDF Files (*.pdf);;Images (*.jpg *.jpeg *.png)", 
             options=options
         )
         
-        if filename:
+        if not filename:
+            return
+
+        # PFD File -> Canvas
+        if filename.lower().endswith(".pfd"):
+            self.on_new_project() # Creates new tab/canvas
+            active_sub = self.mdi_area.currentSubWindow()
+            canvas = active_sub.widget()
             try:
                 if canvas.open_file(filename):
                     active_sub.setWindowTitle(f"Canvas - {os.path.basename(filename)}")
@@ -333,8 +482,23 @@ class CanvasScreen(QMainWindow):
             except Exception as e:
                 QtWidgets.QMessageBox.critical(self, "Error", f"Failed to open file:\n{str(e)}")
                 active_sub.close()
+
+        # Image File -> Image Viewer Tab
+        elif filename.lower().endswith((".png", ".jpg", ".jpeg")):
+            sub = ImageSubWindow(filename)
+            self.mdi_area.addSubWindow(sub)
+            sub.setWindowTitle(f"Image - {os.path.basename(filename)}")
+            sub.showMaximized()
+
+        # PDF File -> PDF Launcher Tab
+        elif filename.lower().endswith(".pdf"):
+            sub = PDFSubWindow(filename)
+            self.mdi_area.addSubWindow(sub)
+            sub.setWindowTitle(f"PDF - {os.path.basename(filename)}")
+            sub.showMaximized()
+            
         else:
-            active_sub.close()
+             QtWidgets.QMessageBox.warning(self, "Error", "Unsupported file type.")
 
     def logout(self):
         app_state.access_token = None

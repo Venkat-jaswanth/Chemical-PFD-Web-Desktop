@@ -59,6 +59,12 @@ def main():
     
     # Connect landing page signal
     landing.new_project_clicked.connect(lambda: slide_to_index(4))
+    
+    def handle_landing_open():
+        slide_to_index(4)
+        canvas.on_open_file()
+        
+    landing.open_project_clicked.connect(handle_landing_open)
 
     stacked.setCurrentIndex(0)
     stacked.show()

@@ -12,10 +12,8 @@ def draw_grid(painter, width, height, theme="light"):
 
 def draw_connections(painter, connections, components):
     # Draw all finished connections
-    # Draw all finished connections
     for conn in connections:
         # Update path with Jump Logic
-        # conn.update_path takes (components, other_connections)
         conn.update_path(components, connections)
 
         # Render Connection (Line + Arrow + Jumps)
