@@ -11,6 +11,7 @@ import {
   DropdownItem,
   Tooltip,
   Switch,
+  Slider,
 } from "@heroui/react";
 import {
   TbLayoutSidebarRightExpand,
@@ -76,6 +77,8 @@ export default function Editor() {
   const [snapToGrid, setSnapToGrid] = useState(true);
 
   const [gridSize, setGridSize] = useState(20);
+  const [componentSize, setComponentSize] = useState(1500); // Component drop size
+  const prevComponentSizeRef = useRef(1500); // Track previous size for scaling
   // In your state section, add:
   const [isImporting, setIsImporting] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -174,6 +177,31 @@ export default function Editor() {
   const connections = useMemo(() => {
     return currentState?.connections || [];
   }, [currentState?.connections]);
+
+  // Update all existing components when size slider changes
+  useEffect(() => {
+    if (!projectId || droppedItems.length === 0) return;
+
+    const prevSize = prevComponentSizeRef.current;
+    if (prevSize === componentSize) return; // No change
+
+    // Calculate scale factor
+    const scaleFactor = Math.sqrt(componentSize / prevSize);
+
+    // Update all items proportionally
+    const updates = droppedItems.map(item => ({
+      id: item.id,
+      patch: {
+        width: item.width * scaleFactor,
+        height: item.height * scaleFactor,
+      }
+    }));
+
+    editorStore.batchUpdateItems(projectId, updates);
+
+    // Update the ref for next change
+    prevComponentSizeRef.current = componentSize;
+  }, [componentSize, projectId, droppedItems, editorStore]);
 
   const canUndo = projectId ? editorStore.canUndo(projectId) : false;
   const canRedo = projectId ? editorStore.canRedo(projectId) : false;
@@ -818,9 +846,8 @@ export default function Editor() {
 
         img.onload = () => {
           const aspectRatio = img.width / img.height;
-          // Use a consistent target area for all components
-          // Adjust this value to change component size: larger = bigger components
-          const targetArea = 2400; // 70 x 70 (was 6400 = 80 x 80)
+          // Use the dynamic component size from slider
+          const targetArea = componentSize;
           let width: number;
           let height: number;
 
@@ -1593,6 +1620,31 @@ export default function Editor() {
                     }
                     onValueChange={setSnapToGrid}
                   />
+                </Tooltip>
+              </div>
+
+              <div className="w-px h-3 bg-gray-300" />
+
+              {/* Component Size Slider */}
+              <div className="flex items-center gap-2">
+                <Tooltip content="Component Size" placement="top">
+                  <div className="flex items-center gap-2 px-2">
+                    <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Size</span>
+                    <Slider
+                      aria-label="Component Size"
+                      size="sm"
+                      step={100}
+                      minValue={1000}
+                      maxValue={3000}
+                      value={componentSize}
+                      onChange={(value) => setComponentSize(value as number)}
+                      className="w-24"
+                      classNames={{
+                        track: "bg-gradient-to-r from-blue-200 to-blue-400 dark:from-blue-800 dark:to-blue-600",
+                        thumb: "bg-blue-600 dark:bg-blue-500"
+                      }}
+                    />
+                  </div>
                 </Tooltip>
               </div>
 
