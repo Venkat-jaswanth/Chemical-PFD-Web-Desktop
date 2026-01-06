@@ -633,6 +633,21 @@ export default function Editor() {
         handler: () => projectId && editorStore.undo(projectId),
       },
       {
+        key: "a",
+        label: "Select All",
+        display: "Ctrl + A",
+        requireCtrl: true,
+        handler: () => {
+          // Select all items
+          const allItemIds = new Set(droppedItems.map((item) => item.id));
+          setSelectedItemIds(allItemIds);
+          
+          // Select all connections
+          const allConnectionIds = new Set(connections.map((conn) => conn.id));
+          setSelectedConnectionIds(allConnectionIds);
+        },
+      },
+      {
         key: "g",
         label: "Toggle Grid",
         display: "Ctrl+G",
@@ -699,6 +714,8 @@ export default function Editor() {
       selectedItemIds,
       selectedConnectionIds,
       snapToGrid,
+      droppedItems,
+      connections,
     ],
   );
 
