@@ -1294,21 +1294,6 @@ export default function Editor() {
       >
         {/* Left Sidebar - Component Library */}
         <div className="relative overflow-hidden border-r border-gray-200 dark:border-gray-800">
-          {/* Collapse Button */}
-          <button
-            className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center
-            rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700
-            hover:bg-gray-100 dark:hover:bg-gray-700"
-            title={leftCollapsed ? "Expand" : "Collapse"}
-            onClick={() => setLeftCollapsed((v) => !v)}
-          >
-            {!leftCollapsed ? (
-              <TbLayoutSidebarLeftCollapse />
-            ) : (
-              <TbLayoutSidebarLeftExpand />
-            )}
-          </button>
-
           {!leftCollapsed && (
             <ComponentLibrarySidebar
               components={components}
@@ -1357,6 +1342,48 @@ export default function Editor() {
           }}
         >
           <FileDropZone />
+          
+          {/* Left Sidebar Collapse Button */}
+          <button
+            className="absolute top-1/2 -translate-y-1/2 left-2 z-30 w-8 h-16 flex items-center justify-center
+            rounded-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900
+            border border-gray-300/50 dark:border-gray-600/50
+            shadow-lg hover:shadow-xl
+            hover:scale-105 active:scale-95
+            transition-all duration-200 ease-out
+            hover:border-blue-400/50 dark:hover:border-blue-500/50
+            group pointer-events-auto"
+            title={leftCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            onClick={() => setLeftCollapsed((v) => !v)}
+          >
+            {!leftCollapsed ? (
+              <TbLayoutSidebarLeftCollapse className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+            ) : (
+              <TbLayoutSidebarLeftExpand className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+            )}
+          </button>
+
+          {/* Right Sidebar Collapse Button */}
+          <button
+            className="absolute top-1/2 -translate-y-1/2 right-2 z-30 w-8 h-16 flex items-center justify-center
+            rounded-lg bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900
+            border border-gray-300/50 dark:border-gray-600/50
+            shadow-lg hover:shadow-xl
+            hover:scale-105 active:scale-95
+            transition-all duration-200 ease-out
+            hover:border-blue-400/50 dark:hover:border-blue-500/50
+            group pointer-events-auto"
+            title={rightCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            onClick={() => setRightCollapsed((v: boolean) => !v)}
+          >
+            {!rightCollapsed ? (
+              <TbLayoutSidebarRightCollapse className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+            ) : (
+              <TbLayoutSidebarRightExpand className="w-5 h-5 text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+            )}
+          </button>
+          
+
           <Stage
             ref={stageRef}
             draggable
@@ -1495,7 +1522,7 @@ export default function Editor() {
           </Stage>
 
           {/* Floating Info Bubble */}
-          <div className="absolute bottom-6 right-[38%] flex flex-col items-end gap-2 pointer-events-none">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">
             <div className="flex items-center gap-3 px-4 py-2 bg-white/90 dark:bg-[#1f2938] backdrop-blur shadow-lg border border-gray-200 rounded-full text-xs font-mono text-gray-600 pointer-events-auto">
               {/* XY Coordinates */}
               <div className="flex gap-2 dark:text-gray-200">
@@ -1707,21 +1734,6 @@ export default function Editor() {
         </div>
         {/* Right Sidebar - Canvas Properties/Items List */}
         <div className="relative overflow-hidden border-l border-gray-200 dark:border-gray-800 hidden lg:block">
-          {/* Collapse Button */}
-          <button
-            className="absolute top-2 left-2 z-10 w-7 h-7 flex items-center justify-center
-      rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700
-      hover:bg-gray-100 dark:hover:bg-gray-700"
-            title={rightCollapsed ? "Expand" : "Collapse"}
-            onClick={() => setRightCollapsed((v: boolean) => !v)}
-          >
-            {!rightCollapsed ? (
-              <TbLayoutSidebarRightCollapse />
-            ) : (
-              <TbLayoutSidebarRightExpand />
-            )}
-          </button>
-
           {!rightCollapsed && (
             <CanvasPropertiesSidebar
               showAllItemsByDefault
