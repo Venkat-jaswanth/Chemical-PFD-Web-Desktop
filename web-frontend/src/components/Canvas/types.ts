@@ -7,7 +7,7 @@ export interface Grip {
 import { KonvaEventObject } from "konva/lib/Node";
 
 export interface ComponentItem {
-  id?: number; // Optional because library items don't have ids
+  id: number; // Optional because library items don't have ids
   name: string;
   icon: string; // Required, not optional
   svg: string; // Required, not optional
@@ -25,6 +25,7 @@ export interface ComponentItem {
 export interface CanvasItem extends ComponentItem {
   id: number;
   x: number;
+  component_id: number; // This is a foreing and primary key
   y: number;
   width: number;
   height: number;
@@ -235,3 +236,43 @@ export interface DiagramExportData {
   // Export settings used
   exportSettings?: Partial<ExportOptions>;
 }
+
+export interface SavedProject {
+  name: string;
+  description: string | null;
+}
+
+export interface BackendCanvasItem {
+  id: number;
+  project: number;
+  component_id: number;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+  sequence: number;
+  s_no: string;
+  parent: string;
+  name: string;
+  svg: string | null;
+  png: string | null;
+  object: string;
+  legend: string;
+  suffix: string;
+  grips: any[];
+}
+
+export interface BackendConnection {
+  id: number;
+  sourceItemId: number;
+  sourceGripIndex: number;
+  targetItemId: number;
+  targetGripIndex: number;
+  waypoints: Array<{ x: number; y: number }>;
+}
+
+ 

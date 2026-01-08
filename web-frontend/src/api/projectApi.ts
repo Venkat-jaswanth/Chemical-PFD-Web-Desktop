@@ -1,6 +1,8 @@
+// src/services/projectApi.ts
 import axios from "axios";
 
-const API_URL = "http://localhost:8000/api";
+const API_BASE =
+  "http://localhost:8000/api"; // default to your DRF prefix
 
 export interface ApiProject {
   id: number;
@@ -8,70 +10,92 @@ export interface ApiProject {
   description: string | null;
   created_at: string;
   updated_at: string;
-  canvas_state?: any;
+  canvas_state?: {
+    items: any[];
+    connections: any[];
+    sequence_counter: number;
+  };
+  // other backend fields...
 }
 
-// Axios client with base URL and JSON headers
 const client = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Add JWT Authorization header if token exists
+// Add JWT Authorization header if token exists (safe config.headers handling)
 client.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
-  if (token && config.headers) {
-    config.headers["Authorization"] = `Bearer ${token}`;
+  if (token) {
+    config.headers = config.headers ?? {};
+    (config.headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
   }
   return config;
 });
 
-/**
- * Fetch all projects
- * GET /api/project/
- */
-/* GET /api/project/ */
+/* --------------------- Projects API --------------------- */
+
+/** GET /project/ */
 export const fetchProjects = async (): Promise<ApiProject[]> => {
   const res = await client.get("/project/");
-
-  if (!res.data.projects) {
-    console.error("Invalid projects API response: ", res.data);
-    return [];
-  }
-
-  return res.data.projects; // extract the projects array
+  // backend returns { status: "...", projects: [...] }
+  return res.data?.projects ?? [];
 };
 
-/**
- * Create a new project
- * POST /api/project/
- */
+/** GET /project/:id/ */
+export const fetchProject = async (id: number): Promise<any> => {
+  const res = await client.get(`/project/${id}/`);
+  // ProjectDetailView returns full project object (possibly wrapped)
+  return res.data;
+};
+
+/** POST /project/ */
 export const createProject = async (
   name: string,
   description?: string | null
 ): Promise<ApiProject> => {
   const res = await client.post("/project/", { name, description });
-  return res.data; // DRF returns the created project
+  // Your backend returns { message, project } — fallback to res.data
+  return res.data?.project ?? res.data;
 };
 
 /**
- * Update project metadata (name/description)
- * PUT /api/project/:id/
+ * PUT /project/:id/
+ * payload should include canvas_state when saving diagram
  */
-export const updateProjectMeta = async (
+export const saveProjectCanvas = async (
   id: number,
-  payload: { name: string; description?: string | null }
-): Promise<ApiProject> => {
+  payload: {
+    name?: string;
+    description?: string | null;
+    canvas_state?: {
+      items: any[];
+      component_id: number;  
+      connections: any[];
+      sequence_counter: number;
+    };
+    // optional viewport or other fields
+    viewport?: any;
+  }
+): Promise<any> => {
   const res = await client.put(`/project/${id}/`, payload);
   return res.data;
 };
 
-/**
- * Delete a project
- * DELETE /api/project/:id/
- */
+/** PUT /project/:id/ (update only meta is same endpoint) */
+export const updateProjectMeta = async (
+  id: number,
+  payload: { name: string; description?: string | null }
+): Promise<any> => {
+  const res = await client.put(`/project/${id}/`, payload);
+  return res.data;
+};
+
+/** DELETE /project/:id/ */
 export const deleteProject = async (id: number): Promise<void> => {
   await client.delete(`/project/${id}/`);
 };
+
+export default client;
