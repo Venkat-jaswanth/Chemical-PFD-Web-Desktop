@@ -533,6 +533,7 @@ export default function Editor() {
 
       return;
     }
+    
 
     try {
       // Convert the editor state to backend format (use your existing util)
@@ -542,7 +543,9 @@ export default function Editor() {
         currentState.connections,
         currentState.sequenceCounter || 0,
       );
-
+console.log("Sending to backend:", JSON.stringify({
+  canvas_state: canvasState
+}, null, 2));
       // Prepare payload expected by backend update view
       const payload = {
         name: projectMetadata.name,
@@ -566,6 +569,7 @@ export default function Editor() {
         items: currentState.items,
         connections: currentState.connections,
       });
+      
 
       setLastSavedState(savedStateStr);
       setHasUnsavedChanges(false);
@@ -604,32 +608,14 @@ export default function Editor() {
           currentState.connections,
           currentState.sequenceCounter || 0,
         );
-
-        // 🔒 TEMP SAFE FIX — FILTER INVALID ITEMS
-        const safeItems = (canvasState.items || []).filter(
-          (item: any) =>
-            typeof item.component_id === "number" && item.component_id > 0,
-        );
-
-        if (safeItems.length !== canvasState.items.length) {
-          console.warn(
-            "Dropped invalid canvas items before save:",
-            canvasState.items.filter(
-              (i: any) => !i.component_id || i.component_id <= 0,
-            ),
-          );
-        }
-
-        const safeCanvasState = {
-          ...canvasState,
-          items: safeItems,
-        };
-
+ 
+        
+ 
         // Prepare payload
         const payload = {
           name: projectMetadata.name,
           description: projectMetadata.description,
-          canvas_state: safeCanvasState,
+          canvas_state: canvasState,
           viewport: {
             scale: stageScale,
             position: stagePos,
