@@ -1,7 +1,13 @@
 // tests/components/navbar.test.tsx
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  cleanup,
+} from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { CNavbar } from "@/components/navbar";
 
@@ -43,9 +49,17 @@ vi.mock("@heroui/link", () => ({
 }));
 
 vi.mock("@heroui/navbar", () => ({
-  Navbar: ({ children, ...props }: any) => (
-    <nav {...props}>{children}</nav>
-  ),
+  Navbar: ({
+    children,
+    classNames,
+    maxWidth,
+    isBordered,
+    position,
+    ...props
+  }: any) => {
+    // Remove HeroUI specific props
+    return <nav {...props}>{children}</nav>;
+  },
   NavbarBrand: ({ children, onClick, ...props }: any) => (
     <div onClick={onClick} {...props}>
       {children}
@@ -62,18 +76,32 @@ vi.mock("@heroui/navbar", () => ({
 }));
 
 vi.mock("@heroui/react", () => ({
-  Popover: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  Popover: ({ children, ...props }: any) => {
+    const { showArrow, placement, ...validProps } = props;
+    return <div {...validProps}>{children}</div>;
+  },
+
   PopoverTrigger: ({ children }: any) => children,
   PopoverContent: ({ children, ...props }: any) => (
     <div data-testid="popover-content" {...props}>
       {children}
     </div>
   ),
-  Avatar: ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} data-testid="avatar" {...props}>
-      {children}
-    </button>
-  ),
+  Avatar: ({ children, onClick, name, ...props }: any) => {
+    // Removed invalid props before passing to button
+    const { isBordered, color, ...validProps } = props;
+
+    return (
+      <button
+        onClick={onClick}
+        data-testid="avatar"
+        data-name={name}
+        {...validProps}
+      >
+        {name ? name[0] : "U"}
+      </button>
+    );
+  },
   User: ({ name, description, ...props }: any) => (
     <div data-testid="user-info">
       <div data-testid="user-name">{name}</div>
@@ -90,11 +118,11 @@ vi.mock("@/components/theme-switch", () => ({
 
 describe("CNavbar Component", () => {
   const originalLocalStorage = global.localStorage;
-  
+
   beforeEach(() => {
     vi.resetAllMocks();
     mockNavigate.mockClear();
-    
+
     // Mock localStorage
     Object.defineProperty(global, "localStorage", {
       value: {
@@ -129,7 +157,7 @@ describe("CNavbar Component", () => {
   describe("Basic Rendering", () => {
     it("renders navbar with brand name and logo", () => {
       renderNavbar();
-      
+
       expect(screen.getByText("ChemPFD")).toBeInTheDocument();
       expect(screen.getByText("Process Flow Designer")).toBeInTheDocument();
       expect(screen.getByText("🧪")).toBeInTheDocument();
@@ -137,21 +165,21 @@ describe("CNavbar Component", () => {
 
     it("renders navigation links", () => {
       renderNavbar();
-      
+
       expect(screen.getByText("Dashboard")).toBeInTheDocument();
       expect(screen.getByText("Components DB")).toBeInTheDocument();
     });
 
     it("renders theme switch component", () => {
       renderNavbar();
-      
+
       expect(screen.getByTestId("theme-switch")).toBeInTheDocument();
     });
 
     // Not clear for now
     // it("renders user avatar with username from localStorage", () => {
     //   renderNavbar();
-      
+
     //   expect(screen.getByTestId("avatar")).toBeInTheDocument();
     //   // Avatar should show the first letter of username
     //   expect(screen.getByText("G")).toBeInTheDocument();
@@ -161,24 +189,24 @@ describe("CNavbar Component", () => {
   describe("Navigation", () => {
     it("navigates to dashboard when brand is clicked", () => {
       renderNavbar();
-      
+
       const brand = screen.getByText("ChemPFD").closest("div");
       expect(brand).toBeInTheDocument();
-      
+
       fireEvent.click(brand!);
       expect(mockNavigate).toHaveBeenCalledWith("/dashboard");
     });
 
     it("highlights active route - dashboard", () => {
       renderNavbar("/dashboard");
-      
+
       const dashboardLink = screen.getByText("Dashboard").closest("a");
       expect(dashboardLink).toHaveAttribute("href", "/dashboard");
     });
 
     it("highlights active route - components", () => {
       renderNavbar("/components");
-      
+
       const componentsLink = screen.getByText("Components DB").closest("a");
       expect(componentsLink).toHaveAttribute("href", "/components");
     });
@@ -187,10 +215,10 @@ describe("CNavbar Component", () => {
   describe("User Profile Popover", () => {
     it("shows popover when avatar is clicked", async () => {
       renderNavbar();
-      
+
       const avatar = screen.getByTestId("avatar");
       fireEvent.click(avatar);
-      
+
       // Since we're using a simple mock, the popover content might not toggle
       // We'll verify the popover structure exists
       expect(screen.getByTestId("avatar")).toBeInTheDocument();
@@ -198,7 +226,7 @@ describe("CNavbar Component", () => {
 
     it("displays user information correctly", () => {
       renderNavbar();
-      
+
       // The popover should show user info when opened
       // In a real test with proper popover, we would trigger it and check content
       // For now, we'll check that the user data is being used
@@ -208,20 +236,20 @@ describe("CNavbar Component", () => {
     // it("shows guest when no username in localStorage", () => {
     //   // Override localStorage mock for this test
     //   (localStorage.getItem as vi.Mock).mockReturnValue(null);
-      
+
     //   renderNavbar();
-      
+
     //   // Avatar should show "G" for Guest
     //   expect(screen.getByText("G")).toBeInTheDocument();
     // });
 
     it("logs out when logout button is clicked", () => {
       renderNavbar();
-      
+
       // In a proper test with the popover open, we would click logout
       // Since our mock is simple, we'll test the logout navigation directly
       expect(mockNavigate).not.toHaveBeenCalledWith("/login");
-      
+
       // If we had access to the logout button:
       // const logoutButton = screen.getByText("Log Out");
       // fireEvent.click(logoutButton);
@@ -232,7 +260,7 @@ describe("CNavbar Component", () => {
   describe("Responsive Design", () => {
     it("hides navigation links on small screens", () => {
       renderNavbar();
-      
+
       // The navbar content has "hidden sm:flex" class
       // We can't test CSS classes directly, but we can verify the structure
       const navbarContent = screen.getByText("Dashboard").closest("div");
@@ -243,18 +271,18 @@ describe("CNavbar Component", () => {
   describe("Accessibility", () => {
     it("has accessible navigation elements", () => {
       renderNavbar();
-      
+
       // Links should have proper href attributes
       const dashboardLink = screen.getByText("Dashboard").closest("a");
       const componentsLink = screen.getByText("Components DB").closest("a");
-      
+
       expect(dashboardLink).toHaveAttribute("href", "/dashboard");
       expect(componentsLink).toHaveAttribute("href", "/components");
     });
 
     it("avatar has appropriate role and label", () => {
       renderNavbar();
-      
+
       const avatar = screen.getByTestId("avatar");
       expect(avatar).toBeInTheDocument();
       // In a real implementation, the avatar should have aria-label or similar
@@ -264,7 +292,7 @@ describe("CNavbar Component", () => {
   describe("Styling and Appearance", () => {
     it("applies correct classes for active state", () => {
       renderNavbar("/dashboard");
-      
+
       // Check that active link has specific classes
       const dashboardLink = screen.getByText("Dashboard").closest("a");
       expect(dashboardLink).toBeInTheDocument();
@@ -273,7 +301,7 @@ describe("CNavbar Component", () => {
 
     it("has gradient text for brand", () => {
       renderNavbar();
-      
+
       const brandText = screen.getByText("ChemPFD");
       expect(brandText).toHaveClass("bg-gradient-to-r");
       expect(brandText).toHaveClass("from-blue-600");
