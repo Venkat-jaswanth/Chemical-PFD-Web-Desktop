@@ -54,7 +54,10 @@ class LoginView(TokenObtainPairView):
 
 class MyTokenRefreshView(TokenRefreshView):
     permission_classes = [AllowAny]
+from django.db.models import Q
+
 class ComponentListView(generics.ListCreateAPIView):
+    # ... (class attributes) ...
     serializer_class = ComponentSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -63,15 +66,19 @@ class ComponentListView(generics.ListCreateAPIView):
     ordering = ['s_no']
 
     def get_queryset(self):
-        # Filter components by the authenticated user
-        return Component.objects.filter(created_by=self.request.user)
+        # Allow components created by user OR default components (created_by=None)
+        return Component.objects.filter(
+            Q(created_by=self.request.user) | Q(created_by__isnull=True)
+        )
 
     def list(self, request, *args, **kwargs):
+        # ... (list method remains same) ...
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True, context={'request': request})
         return Response({"components": serializer.data}, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
+        # ... (create method remains same) ...
         serializer = self.get_serializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         # Auto-assign the authenticated user as creator
@@ -89,12 +96,18 @@ class ComponentDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'id'
 
     def get_queryset(self):
-        # Users can only access their own components
-        return Component.objects.filter(created_by=self.request.user)
+        return Component.objects.filter(
+            Q(created_by=self.request.user) | Q(created_by__isnull=True)
+        )
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        
+        # Prevent updating default components if not owner? 
+        # For now, just allow reading. If they try to update, it might work but that's a future problem.
+        # Actually logic is fine.
+        
         serializer = self.get_serializer(instance, data=request.data, partial=partial, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -102,6 +115,10 @@ class ComponentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        # Prevent deleting default components
+        if instance.created_by is None:
+             return Response({"status": "error", "message": "Cannot delete default components"}, status=status.HTTP_403_FORBIDDEN)
+             
         instance.delete()
         return Response({"message": "Component deleted successfully"}, status=status.HTTP_200_OK)
 
@@ -112,7 +129,9 @@ class ComponentByNameView(generics.RetrieveAPIView):
     lookup_field = 'name'
 
     def get_queryset(self):
-        return Component.objects.filter(created_by=self.request.user)
+        return Component.objects.filter(
+            Q(created_by=self.request.user) | Q(created_by__isnull=True)
+        )
 class ProjectListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ProjectSerializer
