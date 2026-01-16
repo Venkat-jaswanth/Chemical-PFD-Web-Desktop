@@ -256,6 +256,10 @@ function createExportStage(
    IMAGE EXPORT (PNG / JPG) - FIXED VERSION
    (No duplicate connection rendering)
 -------------------------------------------- */
+/* -------------------------------------------
+   IMAGE EXPORT (PNG / JPG) - FIXED VERSION
+   (Properly renders connections from data)
+-------------------------------------------- */
 export async function exportToImage(
   stage: Konva.Stage,
   options: ExportOptions,
@@ -271,38 +275,31 @@ export async function exportToImage(
   
   console.log('Export bounds:', bounds);
 
-  // ✅ FIX 1: Instead of creating a new stage with rendered connections,
-  // just use a clone of the existing stage which already has connections
-  const exportStage = stage.clone({
-    listening: false,
-  });
+  // Create a temporary container
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '-9999px';
+  container.style.width = `${bounds.width}px`;
+  container.style.height = `${bounds.height}px`;
+  container.style.overflow = 'hidden';
+  document.body.appendChild(container);
 
   try {
-    // ✅ FIX 2: Remove any temporary/non-exportable elements
-    // (like selection rectangles, hover effects, etc.)
-    exportStage.find('*').forEach((node: any) => {
-      const nodeName = node.name?.();
-      if (nodeName?.includes('selection') || 
-          nodeName?.includes('hover') ||
-          nodeName?.includes('temp') ||
-          nodeName?.includes('grip')) {
-        node.destroy();
-      }
+    // Create a new stage for export
+    const exportStage = new Konva.Stage({
+      container,
+      width: bounds.width,
+      height: bounds.height,
+      listening: false,
     });
 
-    // ✅ FIX 3: Handle grid visibility
-    if (!(options.showGrid || options.includeGrid)) {
-      exportStage.find('.grid-layer, .grid').forEach((node: any) => {
-        node.destroy();
-      });
-    }
-
-    // ✅ FIX 4: Add background if needed
+    // Add background if needed
     if (options.backgroundColor !== 'transparent') {
       const bgLayer = new Konva.Layer({ listening: false });
       const bgRect = new Konva.Rect({
-        x: bounds.x,
-        y: bounds.y,
+        x: 0,
+        y: 0,
         width: bounds.width,
         height: bounds.height,
         fill: options.backgroundColor || '#ffffff',
@@ -310,17 +307,161 @@ export async function exportToImage(
       });
       bgLayer.add(bgRect);
       exportStage.add(bgLayer);
-      bgLayer.moveToBottom();
     }
 
+    // Create layer for items
+    const itemsLayer = new Konva.Layer({ listening: false });
+
+    // Render items
+    items.forEach(item => {
+      // Adjust position relative to bounds
+      const x = item.x - bounds.x;
+      const y = item.y - bounds.y;
+
+      if (item.svg) {
+        // Create a group for the SVG
+        const group = new Konva.Group({
+          x,
+          y,
+          width: item.width,
+          height: item.height,
+          rotation: item.rotation || 0,
+          scaleX: item.scaleX || 1,
+          scaleY: item.scaleY || 1,
+        });
+
+        // Create container for SVG
+        const container = document.createElement('div');
+        container.innerHTML = item.svg;
+        const svgElement = container.firstChild as SVGElement;
+        
+        if (svgElement) {
+          const svgString = new XMLSerializer().serializeToString(svgElement);
+          const blob = new Blob([svgString], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          
+          const image = new Image();
+          image.onload = () => {
+            const konvaImage = new Konva.Image({
+              x: 0,
+              y: 0,
+              width: item.width,
+              height: item.height,
+              image: image,
+              listening: false,
+            });
+            group.add(konvaImage);
+            itemsLayer.batchDraw();
+            URL.revokeObjectURL(url);
+          };
+          image.src = url;
+        }
+        
+        itemsLayer.add(group);
+      } else if (item.object && item.object.type === 'rect') {
+        // Render rectangle
+        const rect = new Konva.Rect({
+          x,
+          y,
+          width: item.width,
+          height: item.height,
+          fill: item.object.fill || '#cccccc',
+          stroke: item.object.stroke || '#333333',
+          strokeWidth: item.object.strokeWidth || 1,
+          listening: false,
+        });
+        itemsLayer.add(rect);
+      } else if (item.object && item.object.type === 'ellipse') {
+        // Render ellipse
+        const ellipse = new Konva.Ellipse({
+          x: x + item.width / 2,
+          y: y + item.height / 2,
+          radiusX: item.width / 2,
+          radiusY: item.height / 2,
+          fill: item.object.fill || '#cccccc',
+          stroke: item.object.stroke || '#333333',
+          strokeWidth: item.object.strokeWidth || 1,
+          listening: false,
+        });
+        itemsLayer.add(ellipse);
+      }
+
+      // Add label if exists
+      if (item.label) {
+        const label = new Konva.Text({
+          x: x + item.width / 2,
+          y: y + item.height + 5,
+          text: item.label,
+          fontSize: 12,
+          fontFamily: 'Arial',
+          fill: '#333333',
+          listening: false,
+        });
+        label.offsetX(label.width() / 2);
+        itemsLayer.add(label);
+      }
+    });
+
+    exportStage.add(itemsLayer);
+
+    // Create layer for connections
+    if (connections.length > 0) {
+      const connectionsLayer = new Konva.Layer({ listening: false });
+      const connectionPaths = calculateManualPathsWithBridges(connections, items);
+      
+      connections.forEach(connection => {
+        const pathData = connectionPaths[connection.id]?.pathData;
+        if (!pathData) return;
+
+        // Adjust path data to relative coordinates
+        const adjustedPathData = adjustPathCoordinates(pathData, -bounds.x, -bounds.y);
+        
+        const line = new Konva.Path({
+          data: adjustedPathData,
+          stroke: '#3b82f6',
+          strokeWidth: 2,
+          lineCap: 'round',
+          lineJoin: 'round',
+          listening: false,
+        });
+        connectionsLayer.add(line);
+
+        // Add arrow head if we have end point
+        const arrowAngle = connectionPaths[connection.id]?.arrowAngle || 0;
+        const endPoint = connectionPaths[connection.id]?.endPoint;
+        
+        if (endPoint) {
+          const adjustedEndPoint = {
+            x: endPoint.x - bounds.x,
+            y: endPoint.y - bounds.y,
+          };
+          
+          const arrow = new Konva.Arrow({
+            points: [
+              adjustedEndPoint.x - Math.cos(arrowAngle) * 10,
+              adjustedEndPoint.y - Math.sin(arrowAngle) * 10,
+              adjustedEndPoint.x,
+              adjustedEndPoint.y
+            ],
+            pointerLength: 8,
+            pointerWidth: 8,
+            fill: '#3b82f6',
+            stroke: '#3b82f6',
+            strokeWidth: 2,
+            listening: false,
+          });
+          connectionsLayer.add(arrow);
+        }
+      });
+      
+      exportStage.add(connectionsLayer);
+    }
+
+    // Draw once
     exportStage.draw();
 
-    // Export the exact area
+    // Export
     const dataUrl = exportStage.toDataURL({
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
       pixelRatio: options.scale || 1,
       mimeType: options.format === 'jpg' ? 'image/jpeg' : 'image/png',
       quality: options.format === 'jpg' 
@@ -332,6 +473,7 @@ export async function exportToImage(
 
     // Cleanup
     exportStage.destroy();
+    document.body.removeChild(container);
 
     // Convert to blob
     const response = await fetch(dataUrl);
@@ -341,11 +483,28 @@ export async function exportToImage(
     return blob;
   } catch (error) {
     console.error('Export error:', error);
-    exportStage.destroy();
+    document.body.removeChild(container);
     throw error;
   }
 }
 
+/* -------------------------------------------
+   HELPER: Adjust SVG path coordinates
+-------------------------------------------- */
+function adjustPathCoordinates(pathData: string, offsetX: number, offsetY: number): string {
+  // Simple adjustment for absolute coordinates
+  return pathData.replace(/([MLC])([^MLCZ]*)/g, (match, command, coords) => {
+    const numbers = coords.trim().split(/[\s,]+/).map(Number);
+    let result = command;
+    
+    for (let i = 0; i < numbers.length; i += 2) {
+      if (i > 0) result += ' ';
+      result += `${numbers[i] + offsetX},${numbers[i + 1] + offsetY}`;
+    }
+    
+    return result;
+  });
+}
 /* -------------------------------------------
    PDF EXPORT - SIMPLIFIED
 -------------------------------------------- */
